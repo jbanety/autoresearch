@@ -22,7 +22,7 @@ Extract from $ARGUMENTS:
 
 If Scope missing and no --diff:
 1. Scan codebase for tech stack, frameworks, API routes
-2. request_user_input (single batch):
+2. ctx.ui (single batch):
    Q1 (Scope): "What to audit?" — entire codebase, API + middleware, auth, external-facing
    Q2 (Depth): "How thorough?" — quick (5), standard (15), deep (30+), unlimited
    Q3 (Action): "What to do with findings?" — report only, report + auto-fix, report + CI gate

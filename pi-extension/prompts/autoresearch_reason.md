@@ -24,7 +24,7 @@ Remaining text not matching flags = task description.
 
 ## Setup (if Task or Domain missing)
 
-request_user_input (single batch):
+ctx.ui (single batch):
   Q1 (Task): "What should be reasoned about?" — open text
   Q2 (Domain): "What domain?" — software architecture, product strategy, business decision, security, research, content
   Q3 (Mode): "Refinement mode?" — convergent (stop when winner repeats), creative (never auto-stop), debate (no synthesis)

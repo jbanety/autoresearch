@@ -21,7 +21,7 @@ Extract from $ARGUMENTS:
 
 If Target and Scope both missing:
 1. Auto-detect failures: run test suite, type checker, linter, build
-2. Present results via request_user_input (single batched call):
+2. Present results via ctx.ui (single batched call):
    Q1 (Fix What): "Found [N] test failures, [M] type errors, [K] lint errors. Fix what?" — everything, only tests, only types, only lint
    Q2 (Guard): "Safety command that must always pass?" — npm test, tsc, npm run build, skip
    Q3 (Scope): "Which files can I modify?" — suggested globs from error locations + all

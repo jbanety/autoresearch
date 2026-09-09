@@ -12,7 +12,7 @@ version: 2.2.2
 - All results logged to `autoresearch/{subcommand}-{YYMMDD}-{HHMM}/` directory.
 - Chain handoff via `handoff.json`. Evals reads `*-results.tsv`.
 
-## Dispatch (bare `$autoresearch`)
+## Dispatch (bare `/autoresearch`)
 
 Parse the invocation in this order:
 
@@ -30,20 +30,20 @@ Print a banner on every invocation: `[autoresearch] mode: classic | orchestrator
 
 | Command | Does | Default Iterations |
 |---|---|---|
-| `$autoresearch` | Iterate against a metric: modify → verify → keep/discard | 25 |
-| `$autoresearch plan` | Convert a goal into validated Scope, Metric, Verify config | N/A |
-| `$autoresearch debug` | Hunt bugs: hypothesize → test → falsify → repeat | 15 |
-| `$autoresearch fix` | Crush errors one-by-one until zero remain | 20 |
-| `$autoresearch security` | STRIDE + OWASP audit with red-team personas | 15 |
-| `$autoresearch ship` | Ship through 8 phases: checklist → dry-run → deploy → verify | N/A |
-| `$autoresearch scenario` | Generate edge cases across 12 dimensions | 20 |
-| `$autoresearch predict` | 5 expert personas debate before implementation | N/A |
-| `$autoresearch learn` | Scout codebase → generate docs or wiki → validate → fix loop | 10 |
-| `$autoresearch reason` | Adversarial debate with blind judges until convergence | 8 |
-| `$autoresearch probe` | 8 personas interrogate requirements until saturation | 15 |
-| `$autoresearch improve` | Research ICP challenges, discover improvements, generate PRDs | 15 |
-| `$autoresearch evals` | Analyze iteration results: trends, plateaus, regressions | N/A |
-| `$autoresearch regression` | Regression stability gate: baseline vs candidate, verdict STABLE/UNSTABLE | N/A |
+| `/autoresearch` | Iterate against a metric: modify → verify → keep/discard | 25 |
+| `/autoresearch_plan` | Convert a goal into validated Scope, Metric, Verify config | N/A |
+| `/autoresearch_debug` | Hunt bugs: hypothesize → test → falsify → repeat | 15 |
+| `/autoresearch_fix` | Crush errors one-by-one until zero remain | 20 |
+| `/autoresearch_security` | STRIDE + OWASP audit with red-team personas | 15 |
+| `/autoresearch_ship` | Ship through 8 phases: checklist → dry-run → deploy → verify | N/A |
+| `/autoresearch_scenario` | Generate edge cases across 12 dimensions | 20 |
+| `/autoresearch_predict` | 5 expert personas debate before implementation | N/A |
+| `/autoresearch_learn` | Scout codebase → generate docs or wiki → validate → fix loop | 10 |
+| `/autoresearch_reason` | Adversarial debate with blind judges until convergence | 8 |
+| `/autoresearch_probe` | 8 personas interrogate requirements until saturation | 15 |
+| `/autoresearch_improve` | Research ICP challenges, discover improvements, generate PRDs | 15 |
+| `/autoresearch_evals` | Analyze iteration results: trends, plateaus, regressions | N/A |
+| `/autoresearch_regression` | Regression stability gate: baseline vs candidate, verdict STABLE/UNSTABLE | N/A |
 
 ## Universal Flags
 
@@ -57,8 +57,8 @@ Print a banner on every invocation: `[autoresearch] mode: classic | orchestrator
 | `--<subcommand>` | All | Shorthand for `--chain <subcommand>` |
 | `--dry-run` | Orchestrator | Print derived config + planned pipeline; no execution |
 | `--max-cycles N` | Orchestrator | Hard ceiling on orchestration cycles (default 50) |
-| `--classic` | Bare `$autoresearch` | Force Classic metric-loop mode |
-| `--auto` | Bare `$autoresearch` | Force Orchestrator mode |
+| `--classic` | Bare `/autoresearch` | Force Classic metric-loop mode |
+| `--auto` | Bare `/autoresearch` | Force Orchestrator mode |
 
 ## Orchestrator
 
@@ -76,7 +76,7 @@ Backed by `scripts/orchestrate.sh` (deterministic seam — all routing logic liv
 
 1. **Classify** — `scripts/orchestrate.sh classify "<goal>"` → archetype label + mode.
 2. **Derive predicate** — reuse `plan` logic to produce a concrete Success predicate: exact shell command + expected output. For `optimize-metric`, run the full plan/wizard derivation internally.
-3. **Confirm** — ONE `request_user_input` showing: archetype, mode, concrete predicate (command + expected output), terminal choice (stop-at-verified vs proceed-to-ship). Misclassifications are caught here, not mid-run.
+3. **Confirm** — ONE `ctx.ui` showing: archetype, mode, concrete predicate (command + expected output), terminal choice (stop-at-verified vs proceed-to-ship). Misclassifications are caught here, not mid-run.
 4. **Round-0 dry-run** — prove the predicate command runs and returns a value; safety-screen every derived command via `screen-cmd`; print projected cycle budget. Stop here if `--dry-run`.
 5. **Loop** until predicate satisfied:
    a. Assess state via cheap signals (last `handoff.json`, regression verdict, error count) + affected-test verify.

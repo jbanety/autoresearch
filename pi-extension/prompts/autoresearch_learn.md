@@ -24,7 +24,7 @@ Extract from $ARGUMENTS:
 
 ## Setup (if Mode or Scope missing)
 
-request_user_input (single batch):
+ctx.ui (single batch):
   Q1 (Mode): "What to do?" — init (generate docs), update (refresh), check (validate), summarize (overview), wiki (knowledge base)
   Q2 (Scope): "Which files?" — suggested globs + entire codebase
   Q3 (Depth): "How detailed?" — overview only, standard, comprehensive

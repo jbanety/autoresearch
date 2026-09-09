@@ -17,8 +17,8 @@ Extract from $ARGUMENTS:
 
 1. If path provided → use that TSV directly
 2. If no path → scan current directory + `autoresearch/*/` for `*-results.tsv` files
-3. If multiple found → request_user_input: "Which results to analyze?" — list found files
-4. If none found → request_user_input: "Provide path to results TSV"
+3. If multiple found → ctx.ui: "Which results to analyze?" — list found files
+4. If none found → ctx.ui: "Provide path to results TSV"
 5. Also scan project root for v2.0.03 legacy TSV files (backward compat)
 
 ## Parse TSV

@@ -14,14 +14,14 @@ Extract from $ARGUMENTS:
 - `Depth:` or `--depth` — shallow (5 rounds), standard (15), deep (30)
 - `--personas N` or `Personas:` — active persona count (3-8, default 6)
 - `--saturation-threshold N` — net-new constraints/round below which counts toward saturation (default 2)
-- `--mode` or `Mode:` — interactive (default, uses request_user_input) or autonomous (self-answers from codebase)
+- `--mode` or `Mode:` — interactive (default, uses ctx.ui) or autonomous (self-answers from codebase)
 - `--adversarial` — rotate hostile personas to front
 - `Iterations:` or `--iterations` — default 15 rounds. "unlimited" for unbounded.
 - `--evals`, `--evals-interval N`, `--chain`, `--<subcommand>`
 
 ## Setup (if Topic missing)
 
-request_user_input (single batch):
+ctx.ui (single batch):
   Q1 (Topic): "What to probe?" — open text describing feature, requirement, or design
   Q2 (Scope): "Which files for context?" — suggested globs + entire codebase
   Q3 (Depth): "How deep?" — shallow (5 rounds), standard (15), deep (30), unlimited
@@ -60,7 +60,7 @@ If --adversarial: rotate Skeptic + Contradiction Finder + Edge-Case Hunter to fr
 - Annotate questions with: relevant file:line, existing behavior, gaps
 
 ### Phase 4: Answer Capture
-- **Interactive mode:** present questions via request_user_input, collect answers
+- **Interactive mode:** present questions via ctx.ui, collect answers
 - **Autonomous mode:** infer answers from codebase context, label confidence (high/medium/low)
 
 ### Phase 5: Constraint Extraction

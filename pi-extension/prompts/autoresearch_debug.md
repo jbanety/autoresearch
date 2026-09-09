@@ -21,7 +21,7 @@ Extract from $ARGUMENTS:
 
 If Scope and Symptom both missing:
 1. Auto-scan: run tests, lint, typecheck to detect existing failures
-2. request_user_input (single batch):
+2. ctx.ui (single batch):
    Q1 (Issue): "What's the problem?" — hunt all bugs, specific error, failing tests, CI failure, performance
    Q2 (Scope): "Which files?" — suggested globs + entire codebase
    Q3 (Depth): "How deep?" — quick (5), standard (15), deep (30+), unlimited

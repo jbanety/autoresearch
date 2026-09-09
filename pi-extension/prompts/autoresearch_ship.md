@@ -29,7 +29,7 @@ Remaining text = description of what to ship.
    - Has Dockerfile / deploy config → deployment
    - Has markdown / content files → content
    - Has package.json version change → package
-2. If still unclear → request_user_input (single batch):
+2. If still unclear → ctx.ui (single batch):
    Q1 (What): "What are you shipping?" — code PR, release, deployment, content, docs, package
    Q2 (Target): "Specific target?" — current branch, specific PR, specific path
    Q3 (Mode): "How to ship?" — full workflow, dry-run only, checklist only

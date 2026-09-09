@@ -20,7 +20,7 @@ Extract from $ARGUMENTS:
 
 ## Setup (if Scenario or Domain missing)
 
-request_user_input (single batch):
+ctx.ui (single batch):
   Q1 (Scenario): "Describe the feature/flow to explore"
   Q2 (Domain): "What domain?" — web app, mobile app, API, CLI, data pipeline, infrastructure
   Q3 (Scope): "Which files for context?" — suggested globs + entire codebase

@@ -17,7 +17,7 @@ Remaining text = goal description.
 
 ## Setup (if Goal missing)
 
-request_user_input (single batch):
+ctx.ui (single batch):
   Q1 (Goal): "What do you want to achieve?" — open text
   Q2 (Type): "What kind of goal?" — improve a metric, fix errors, audit security, explore edge cases, document code, ship something
 If Goal provided → skip.
@@ -45,7 +45,7 @@ For metric-driven goals:
 
 For subjective goals:
 - Suggest proxy metrics where possible
-- Or recommend $autoresearch reason for non-measurable goals
+- Or recommend /autoresearch_reason for non-measurable goals
 
 ## Phase 4: Derive Verify Command
 
@@ -76,7 +76,7 @@ Based on goal complexity:
 Output a ready-to-run autoresearch config block:
 
 ```
-$autoresearch
+/autoresearch
 Goal: {derived goal}
 Scope: {derived globs}
 Metric: {derived metric}

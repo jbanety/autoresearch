@@ -24,7 +24,7 @@ Remaining text not matching flags = goal description.
 
 ## Setup (if Scope or Goal missing)
 
-request_user_input (single batch):
+ctx.ui (single batch):
   Q1 (Scope): "Which files to analyze?" — suggested globs + entire codebase
   Q2 (Goal): "What should personas focus on?" — code quality, security, performance, architecture, all
   Q3 (Depth): "How deep?" — shallow (3 personas, 1 round), standard (5, 2 — recommended), deep (8, 3)

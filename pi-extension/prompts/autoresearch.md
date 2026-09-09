@@ -22,7 +22,7 @@ Extract from $ARGUMENTS:
 
 ## Setup (if required context missing)
 
-If Goal, Scope, Metric, or Verify missing → use request_user_input (single batched call):
+If Goal, Scope, Metric, or Verify missing → use ctx.ui (single batched call):
   Q1 (Goal): "What do you want to improve?"
   Q2 (Scope): "Which files?" — suggest globs from project
   Q3 (Metric+Verify): "How to measure? Provide a shell command that outputs a number"

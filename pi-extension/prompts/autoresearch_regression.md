@@ -24,7 +24,7 @@ Extract from $ARGUMENTS:
 ## Setup / Probe-on-launch
 
 1. Auto-detect per-dimension verify commands: `package.json` scripts, `Makefile`, `nx`, migrate config, bench/snapshot/size scripts.
-2. request_user_input (single batch) to confirm detected commands + base ref + which dimensions to run.
+2. ctx.ui (single batch) to confirm detected commands + base ref + which dimensions to run.
 3. **Auto-skip probe** when CI / no-TTY / `--mode autonomous` / complete-config / chained-handoff — log the inferred config instead of asking.
 
 ## Classification Phase (first-class, before any differential)

@@ -27,7 +27,7 @@ If upstream `handoff.json` exists in CWD → read it. Map source findings to def
 
 ## Setup (if Goal or ICP missing)
 
-request_user_input (single batch):
+ctx.ui (single batch):
   Q1 (Goal): "What product area to improve?" — open text
   Q2 (ICP): "Who is your ideal customer?" — open text describing target buyer/user
   Q3 (Pain points): "Top 3 pain points your customers face?" — open text
@@ -43,7 +43,7 @@ Resolve product context (priority chain):
 3. `package.json` / `pyproject.toml` / `Cargo.toml` description (≥10 chars) → use it
 4. If ALL above absent AND NOT `--no-discover` → auto-discover: scan 10 key files (manifest, routes, models, config), cap 1500 tokens
 5. If `--discover` → force scan regardless of above
-6. If nothing found → warn: "No product context. Run `$autoresearch learn --mode summarize` for better results."
+6. If nothing found → warn: "No product context. Run `/autoresearch_learn --mode summarize` for better results."
 
 ## Phase 2: Research Loop
 
@@ -82,7 +82,7 @@ Print: `--- Eval Checkpoint (iterations {X}-{Y}) ---\nInsights: {total} (+{new})
 
 Write `improvement-plan.md` with full tiered ranking.
 
-request_user_input (multi-select): present tiered list, user selects which features become PRDs.
+ctx.ui (multi-select): present tiered list, user selects which features become PRDs.
 If `--features` provided → pre-select matching items, still show for confirmation.
 
 ## Phase 4: PRD Generation
