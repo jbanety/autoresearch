@@ -102,7 +102,7 @@ const checks = [
 if (checks.some(([actual, expected]) => actual !== expected)) process.exit(1);
 NODE
 
-for suite in test-hooks.sh test-orchestrator.sh test-regression.sh test-maintenance.sh; do
+for suite in test-hooks.sh test-pi.sh test-orchestrator.sh test-regression.sh test-maintenance.sh; do
   bash "tests/$suite"
 done
 

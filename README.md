@@ -2,13 +2,14 @@
 
 # Autoresearch
 
-**Turn [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenCode](https://opencode.ai), or [OpenAI Codex](https://developers.openai.com/codex) into a relentless improvement engine.**
+**Turn [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [OpenCode](https://opencode.ai), [OpenAI Codex](https://developers.openai.com/codex), or [pi](https://github.com/earendil-works/pi-coding-agent) into a relentless improvement engine.**
 
 Based on [Karpathy's autoresearch](https://github.com/karpathy/autoresearch) — constraint + mechanical metric + autonomous iteration = compounding gains.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude_Code-Skill-blue?logo=anthropic&logoColor=white)](https://docs.anthropic.com/en/docs/claude-code)
 [![OpenCode](https://img.shields.io/badge/OpenCode-Skill-purple)](https://opencode.ai)
 [![Codex](https://img.shields.io/badge/Codex-Skill-green?logo=openai&logoColor=white)](https://developers.openai.com/codex)
+[![pi](https://img.shields.io/badge/pi-Extension-teal)](https://github.com/earendil-works/pi-coding-agent)
 [![Version](https://img.shields.io/badge/version-2.2.2-blue.svg)](https://github.com/uditgoenka/autoresearch/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -22,7 +23,7 @@ Based on [Karpathy's autoresearch](https://github.com/karpathy/autoresearch) —
 
 *You don't need AGI. You need a goal, a metric, and a loop that never quits.*
 
-**Supports Claude Code, OpenCode, and OpenAI Codex for the core skill, bundled runtime, installation, and verification surface. Hook guardrails are Claude Code-only.**
+**Supports Claude Code, OpenCode, OpenAI Codex, and pi for the core skill, bundled runtime, installation, and verification surface. Hook guardrails ship for Claude Code (native hooks) and pi (extension events).**
 
 > **v2.2.0 — Autonomous Orchestrator:** Type a plain-language goal to `/autoresearch` and it classifies your goal, derives a Success predicate, confirms it once, then loops across subcommands until done. No manual chaining required. `Metric:`/`Verify:` invocations run the classic loop unchanged. See [guide/autoresearch-orchestrator.md](guide/autoresearch-orchestrator.md).
 
@@ -116,7 +117,7 @@ Before looping, Claude performs a one-time setup:
 
 ## Hooks & Safety
 
-Hooks are defense-in-depth guardrails, not a security sandbox. Claude Code ships the hook surface; OpenCode and Codex ship the core skill/runtime/install surface without hook parity.
+Hooks are defense-in-depth guardrails, not a security sandbox. Claude Code ships the hook surface natively; pi ships the same guardrails as extension events (`tool_call`, `before_agent_start`, `input`, `session_start`, `session_shutdown`). OpenCode and Codex ship the core skill/runtime/install surface without hook parity.
 
 ### What's Protected
 
@@ -313,6 +314,28 @@ cp -r autoresearch/.agents/skills/autoresearch ~/.codex/skills/autoresearch
 
 > Invoke via `$autoresearch` mention syntax. Subcommands are keywords: `$autoresearch plan`, `$autoresearch debug`, `$autoresearch evals`, etc.
 > The installed Codex package includes the bundled orchestrator and regression helpers under `plugins/autoresearch/skills/autoresearch/` and `.agents/skills/autoresearch/`.
+
+### pi Quick Start
+
+**Option A — Guided installer (recommended):**
+```bash
+git clone https://github.com/uditgoenka/autoresearch.git
+cd autoresearch
+./scripts/install.sh --pi --global
+```
+
+**Option B — pi package install:**
+```bash
+pi install git:github.com/uditgoenka/autoresearch
+```
+
+**Option C — Try without installing:**
+```bash
+pi -e ./pi-extension
+```
+
+> Invoke commands as pi prompt templates: `/autoresearch`, `/autoresearch_debug`, `/autoresearch_fix`, … (underscore names). The dispatcher is a skill: `/skill:autoresearch`.
+> The pi extension ports the Claude hook guardrails (scout/privacy/dangerous-cmd block, iteration context, simplify gate, stop-notify) to pi extension events. See [`pi-extension/README.md`](pi-extension/README.md) for the full hook→event mapping and `AR_DISABLE_*` flags.
 
 ### Run It
 

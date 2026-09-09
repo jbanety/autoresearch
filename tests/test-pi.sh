@@ -1,0 +1,480 @@
+#!/usr/bin/env bash
+# Tests for the pi extension guardrails — the TypeScript ports of the Claude hooks.
+#
+# These exercise the pure-logic functions exported by pi-extension/src/ (shell
+# tokenizer, ignore matcher, dangerous-cmd-block, scout-block, privacy-block,
+# simplify-gate, iteration-context) via tsx, mirroring the behaviors asserted
+# in test-hooks.sh for the Claude .cjs hooks. They do NOT spin up a pi session.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PI_EXT="$REPO_ROOT/pi-extension"
+
+PASS=0
+FAIL=0
+TOTAL=0
+
+# Resolve a tsx binary (bundled with pi-coding-agent's node_modules if available,
+# else npx). tsx transpiles TS on the fly like pi's jiti loader.
+TSX=""
+if [[ -x "$REPO_ROOT/node_modules/.bin/tsx" ]]; then
+  TSX="$REPO_ROOT/node_modules/.bin/tsx"
+elif command -v tsx >/dev/null 2>&1; then
+  TSX="tsx"
+else
+  # Fall back to npx (cached). Pinned to avoid network on every run.
+  TSX="npx -y tsx@4"
+fi
+
+# Run a TS test snippet that imports from the extension and prints a single
+# line: "PASS" or "FAIL: <reason>". The snippet must call process.exit with 0/1.
+run_case() {
+  local label="$1"
+  local code="$2"
+  TOTAL=$((TOTAL + 1))
+  local result
+  result=$(printf '%s' "$code" | (cd "$PI_EXT" && $TSX -e "$(cat)" 2>&1) ) || true
+  if [[ "$result" == "PASS" ]]; then
+    printf '  PASS: %s\n' "$label"
+    PASS=$((PASS + 1))
+  else
+    printf '  FAIL: %s — %s\n' "$label" "$result"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
+# Convenience: assert a JS expression is truthy. The expression runs in a module
+# that imports the named symbols.
+ok() {
+  local label="$1"
+  local imports="$2"
+  local expr="$3"
+  run_case "$label" "
+import { $imports } from \"./src/lib/shell.ts\"; // placeholder, replaced below
+"
+  # The above placeholder approach is awkward; use a direct inline module instead.
+}
+
+# We use a cleaner pattern: each case is a self-contained inline TS program.
+case_ok() {
+  local label="$1"
+  local program="$2"
+  TOTAL=$((TOTAL + 1))
+  local result
+  result=$(printf '%s' "$program" | (cd "$PI_EXT" && $TSX --eval "$program" 2>&1)) || true
+  if [[ "$result" == "PASS" ]]; then
+    printf '  PASS: %s\n' "$label"
+    PASS=$((PASS + 1))
+  else
+    printf '  FAIL: %s — %s\n' "$label" "$result"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
+# ============================================================================
+printf '\n--- Testing shell tokenizer (shell.ts) ---\n'
+# ============================================================================
+
+case_ok "shellSegments: git push -f" '
+import { shellSegments } from "./src/lib/shell.ts";
+const s = shellSegments("git push -f origin master")[0].join(" ");
+process.stdout.write(s === "git push -f origin master" ? "PASS" : "FAIL: " + s);
+'
+
+case_ok "shellSegments: sudo rm unwraps" '
+import { shellSegments } from "./src/lib/shell.ts";
+const s = shellSegments("sudo rm -rf /tmp/x")[0].join(" ");
+process.stdout.write(s === "rm -rf /tmp/x" ? "PASS" : "FAIL: " + s);
+'
+
+case_ok "shellSegments: env VAR=1 unwraps" '
+import { shellSegments } from "./src/lib/shell.ts";
+const s = shellSegments("env FOO=bar node x.js")[0].join(" ");
+process.stdout.write(s === "node x.js" ? "PASS" : "FAIL: " + s);
+'
+
+case_ok "shellSegments: sh -c nested" '
+import { shellSegments } from "./src/lib/shell.ts";
+const segs = shellSegments("bash -c \x27git reset --hard\x27");
+const s = segs[1] && segs[1].join(" ");
+process.stdout.write(s === "git reset --hard" ? "PASS" : "FAIL: " + s);
+'
+
+case_ok "shellSegments: command substitution inspected" '
+import { shellSegments } from "./src/lib/shell.ts";
+const segs = shellSegments("echo $(git push -f)");
+process.stdout.write(segs.length >= 1 ? "PASS" : "FAIL: no segments");
+'
+
+# ============================================================================
+printf '\n--- Testing dangerous-cmd-block ---\n'
+# ============================================================================
+
+case_ok "dangerous: blocks git push --force" '
+import { commandLabel } from "./src/hooks/dangerous-cmd-block.ts";
+const r = commandLabel("git push --force");
+process.stdout.write(r === "forced git push" ? "PASS" : "FAIL: " + r);
+'
+
+case_ok "dangerous: blocks git push -f" '
+import { commandLabel } from "./src/hooks/dangerous-cmd-block.ts";
+const r = commandLabel("git push -f origin main");
+process.stdout.write(r === "forced git push" ? "PASS" : "FAIL: " + r);
+'
+
+case_ok "dangerous: allows regular git push" '
+import { commandLabel } from "./src/hooks/dangerous-cmd-block.ts";
+const r = commandLabel("git push origin main");
+process.stdout.write(r === null ? "PASS" : "FAIL: " + r);
+'
+
+case_ok "dangerous: blocks git reset --hard" '
+import { commandLabel } from "./src/hooks/dangerous-cmd-block.ts";
+const r = commandLabel("git reset --hard HEAD~1");
+process.stdout.write(r === "hard git reset" ? "PASS" : "FAIL: " + r);
+'
+
+case_ok "dangerous: blocks rm -rf" '
+import { commandLabel } from "./src/hooks/dangerous-cmd-block.ts";
+const r = commandLabel("rm -rf /");
+process.stdout.write(r === "recursive forced removal" ? "PASS" : "FAIL: " + r);
+'
+
+case_ok "dangerous: blocks git clean -f" '
+import { commandLabel } from "./src/hooks/dangerous-cmd-block.ts";
+const r = commandLabel("git clean -f");
+process.stdout.write(r === "forced git clean" ? "PASS" : "FAIL: " + r);
+'
+
+case_ok "dangerous: blocks git branch -D" '
+import { commandLabel } from "./src/hooks/dangerous-cmd-block.ts";
+const r = commandLabel("git branch -D feature");
+process.stdout.write(r === "forced branch deletion" ? "PASS" : "FAIL: " + r);
+'
+
+case_ok "dangerous: blocks git checkout ." '
+import { commandLabel } from "./src/hooks/dangerous-cmd-block.ts";
+const r = commandLabel("git checkout . ");
+process.stdout.write(r === "git checkout of working tree" ? "PASS" : "FAIL: " + r);
+'
+
+case_ok "dangerous: allows git status" '
+import { commandLabel } from "./src/hooks/dangerous-cmd-block.ts";
+const r = commandLabel("git status");
+process.stdout.write(r === null ? "PASS" : "FAIL: " + r);
+'
+
+case_ok "dangerous: blocks force-with-lease" '
+import { commandLabel } from "./src/hooks/dangerous-cmd-block.ts";
+const r = commandLabel("git push origin main --force-with-lease");
+process.stdout.write(r === "forced git push" ? "PASS" : "FAIL: " + r);
+'
+
+case_ok "dangerous: harmless echoed text allowed" '
+import { commandLabel } from "./src/hooks/dangerous-cmd-block.ts";
+const r = commandLabel("echo rm -rf /");
+process.stdout.write(r === null ? "PASS" : "FAIL: " + r);
+'
+
+case_ok "dangerous: sudo wrapper cannot hide hard reset" '
+import { commandLabel } from "./src/hooks/dangerous-cmd-block.ts";
+const r = commandLabel("sudo git reset --hard HEAD");
+process.stdout.write(r === "hard git reset" ? "PASS" : "FAIL: " + r);
+'
+
+case_ok "dangerous: comment text not executed" '
+import { commandLabel } from "./src/hooks/dangerous-cmd-block.ts";
+const r = commandLabel("true # ; git reset --hard HEAD");
+process.stdout.write(r === null ? "PASS" : "FAIL: " + r);
+'
+
+case_ok "dangerous: checkDangerousCommand block result" '
+import { checkDangerousCommand } from "./src/hooks/dangerous-cmd-block.ts";
+const r = checkDangerousCommand("git push -f origin master");
+process.stdout.write(r.block === true ? "PASS" : "FAIL: not blocked");
+'
+
+case_ok "dangerous: disabled via env var" '
+delete process.env.AR_DISABLE_DANGEROUS_CMD_BLOCK;
+process.env.AR_DISABLE_DANGEROUS_CMD_BLOCK = "1";
+import { checkDangerousCommand } from "./src/hooks/dangerous-cmd-block.ts";
+const r = checkDangerousCommand("git push -f origin master");
+process.stdout.write(r.block ? "FAIL: still blocked when disabled" : "PASS");
+'
+
+# ============================================================================
+printf '\n--- Testing ignore matcher (ignore.ts) ---\n'
+# ============================================================================
+
+case_ok "ignore: node_modules ignored" '
+import { ignore } from "./src/lib/ignore.ts";
+const ig = ignore().add(["node_modules/", "*.log"]);
+process.stdout.write(ig.ignores("node_modules/foo.js") ? "PASS" : "FAIL");
+'
+
+case_ok "ignore: *.log ignored" '
+import { ignore } from "./src/lib/ignore.ts";
+const ig = ignore().add(["*.log"]);
+process.stdout.write(ig.ignores("debug.log") ? "PASS" : "FAIL");
+'
+
+case_ok "ignore: negation un-ignores" '
+import { ignore } from "./src/lib/ignore.ts";
+const ig = ignore().add(["node_modules/", "!node_modules/keep/"]);
+process.stdout.write(!ig.ignores("node_modules/keep/x.js") ? "PASS" : "FAIL");
+'
+
+case_ok "ignore: src allowed" '
+import { ignore } from "./src/lib/ignore.ts";
+const ig = ignore().add(["node_modules/"]);
+process.stdout.write(!ig.ignores("src/index.ts") ? "PASS" : "FAIL");
+'
+
+# ============================================================================
+printf '\n--- Testing scout-block (.ckignore) ---\n'
+# ============================================================================
+
+case_ok "scout: blocks node_modules Read" '
+import { checkStructuredPath } from "./src/hooks/scout-block.ts";
+const r = checkStructuredPath("node_modules/express/index.js", "/tmp");
+process.stdout.write(r.block === true ? "PASS" : "FAIL");
+'
+
+case_ok "scout: allows normal file Read" '
+import { checkStructuredPath } from "./src/hooks/scout-block.ts";
+const r = checkStructuredPath("src/main.ts", "/tmp");
+process.stdout.write(!r.block ? "PASS" : "FAIL: blocked");
+'
+
+case_ok "scout: blocks .git access" '
+import { checkStructuredPath } from "./src/hooks/scout-block.ts";
+const r = checkStructuredPath(".git/config", "/tmp");
+process.stdout.write(r.block === true ? "PASS" : "FAIL");
+'
+
+case_ok "scout: blocks Bash with node_modules path" '
+import { checkBashCommand } from "./src/hooks/scout-block.ts";
+const r = checkBashCommand("cat node_modules/foo/bar.js", "/tmp");
+process.stdout.write(r.block === true ? "PASS" : "FAIL");
+'
+
+case_ok "scout: allows build tool (npm)" '
+import { checkBashCommand } from "./src/hooks/scout-block.ts";
+const r = checkBashCommand("npm test", "/tmp");
+process.stdout.write(!r.block ? "PASS" : "FAIL: blocked");
+'
+
+case_ok "scout: bash string literal false-positive prevention" '
+import { checkBashCommand } from "./src/hooks/scout-block.ts";
+const r = checkBashCommand("echo \x27testing node_modules string\x27", "/tmp");
+process.stdout.write(!r.block ? "PASS" : "FAIL: blocked");
+'
+
+case_ok "scout: remote ssh path not local" '
+import { checkBashCommand } from "./src/hooks/scout-block.ts";
+const r = checkBashCommand("ssh deploy@prod cat node_modules/server.js", "/tmp");
+process.stdout.write(!r.block ? "PASS" : "FAIL: blocked remote");
+'
+
+case_ok "scout: disabled via env var" '
+process.env.AR_DISABLE_SCOUT_BLOCK = "1";
+import { checkBashCommand } from "./src/hooks/scout-block.ts";
+const r = checkBashCommand("cat node_modules/foo.js", "/tmp");
+process.stdout.write(!r.block ? "PASS" : "FAIL: still blocked");
+'
+
+# ============================================================================
+printf '\n--- Testing privacy-block (sensitive files) ---\n'
+# ============================================================================
+
+case_ok "privacy: .env sensitive" '
+import { isSensitive } from "./src/lib/paths.ts";
+process.stdout.write(isSensitive(".env") ? "PASS" : "FAIL");
+'
+
+case_ok "privacy: .env.example allowed" '
+import { isSensitive } from "./src/lib/paths.ts";
+process.stdout.write(!isSensitive(".env.example") ? "PASS" : "FAIL");
+'
+
+case_ok "privacy: id_rsa sensitive" '
+import { isSensitive } from "./src/lib/paths.ts";
+process.stdout.write(isSensitive("~/.ssh/id_rsa") ? "PASS" : "FAIL");
+'
+
+case_ok "privacy: credentials.json sensitive" '
+import { isSensitive } from "./src/lib/paths.ts";
+process.stdout.write(isSensitive("credentials.json") ? "PASS" : "FAIL");
+'
+
+case_ok "privacy: src normal" '
+import { isSensitive } from "./src/lib/paths.ts";
+process.stdout.write(!isSensitive("src/index.ts") ? "PASS" : "FAIL");
+'
+
+case_ok "privacy: cat .env is clear" '
+import { bashSensitivity } from "./src/lib/paths.ts";
+const r = bashSensitivity("cat .env");
+process.stdout.write(r === "clear" ? "PASS" : "FAIL: " + r);
+'
+
+case_ok "privacy: echo src none" '
+import { bashSensitivity } from "./src/lib/paths.ts";
+const r = bashSensitivity("echo src/index.ts");
+process.stdout.write(r === "none" ? "PASS" : "FAIL: " + r);
+'
+
+case_ok "privacy: checkStructuredSensitive needsConfirm" '
+import { checkStructuredSensitive } from "./src/hooks/privacy-block.ts";
+const r = checkStructuredSensitive(".env");
+process.stdout.write(r.needsConfirm === true ? "PASS" : "FAIL");
+'
+
+case_ok "privacy: disabled via env var" '
+process.env.AR_DISABLE_PRIVACY_BLOCK = "1";
+import { checkStructuredSensitive } from "./src/hooks/privacy-block.ts";
+const r = checkStructuredSensitive(".env");
+process.stdout.write(!r.needsConfirm ? "PASS" : "FAIL: still asking");
+'
+
+# ============================================================================
+printf '\n--- Testing simplify-gate ---\n'
+# ============================================================================
+
+# simplify-gate needs a git repo to count LOC. Build a throwaway repo.
+GATE_REPO="$(mktemp -d)"
+trap 'rm -rf "$GATE_REPO"' EXIT
+( cd "$GATE_REPO" && git init -q && git config user.name t && git config user.email t@x && printf "x\n" > a.txt && git add a.txt && git commit -qm init ) >/dev/null 2>&1
+
+case_ok "simplify-gate: no shipping verb allows" "
+import { checkSimplifyGate } from \"./src/hooks/simplify-gate.ts\";
+const r = checkSimplifyGate('fix the bug', '$GATE_REPO');
+process.stdout.write(!r.block ? 'PASS' : 'FAIL: blocked');
+"
+
+case_ok "simplify-gate: small diff allows shipping" "
+import { checkSimplifyGate } from \"./src/hooks/simplify-gate.ts\";
+const r = checkSimplifyGate('ship this', '$GATE_REPO');
+process.stdout.write(!r.block ? 'PASS' : 'FAIL: blocked');
+"
+
+case_ok "simplify-gate: negation phrase allows" "
+import { checkSimplifyGate } from \"./src/hooks/simplify-gate.ts\";
+const r = checkSimplifyGate(\"don't ship yet\", '$GATE_REPO');
+process.stdout.write(!r.block ? 'PASS' : 'FAIL: blocked');
+"
+
+case_ok "simplify-gate: large diff blocks" "
+import { checkSimplifyGate } from \"./src/hooks/simplify-gate.ts\";
+const fs = require('fs');
+// Append 811 lines to a TRACKED file so git diff HEAD --numstat (cwd-aware) counts them.
+fs.appendFileSync('$GATE_REPO/a.txt', '\\n' + Array(811).fill('b').join('\\n'));
+const r = checkSimplifyGate('release now', '$GATE_REPO');
+process.stdout.write(r.block === true ? 'PASS' : 'FAIL: not blocked');
+"
+
+case_ok "simplify-gate: disabled via env var" "
+process.env.AR_DISABLE_SIMPLIFY_GATE = '1';
+import { checkSimplifyGate } from \"./src/hooks/simplify-gate.ts\";
+const r = checkSimplifyGate('ship this', '$GATE_REPO');
+process.stdout.write(!r.block ? 'PASS' : 'FAIL: still blocked');
+"
+
+# ============================================================================
+printf '\n--- Testing iteration-context ---\n'
+# ============================================================================
+
+ITER_REPO="$(mktemp -d)"
+( cd "$ITER_REPO" && mkdir -p autoresearch/run001 && printf 'iteration\tstatus\tmetric\n1\tpass\t0.85\n2\tpass\t0.87\n3\tpass\t0.88\n' > autoresearch/run001/results.tsv ) >/dev/null 2>&1
+
+case_ok "iteration-context: skips before 5th" "
+import { buildIterationContext } from \"./src/hooks/iteration-context.ts\";
+const r = buildIterationContext('$ITER_REPO', 'sess-skip', 'fix the bug');
+process.stdout.write(r.text === null ? 'PASS' : 'FAIL: injected early');
+"
+
+case_ok "iteration-context: injects on 5th" "
+import { buildIterationContext } from \"./src/hooks/iteration-context.ts\";
+// advance the counter to 4 first
+for (let i=0;i<4;i++) buildIterationContext('$ITER_REPO', 'sess-inject', 'x');
+const r = buildIterationContext('$ITER_REPO', 'sess-inject', 'autoresearch loop');
+process.stdout.write(r.text && r.text.includes('Active iteration state') ? 'PASS' : 'FAIL: ' + (r.text||'null'));
+"
+
+case_ok "iteration-context: loop state for AR commands" "
+import { buildIterationContext } from \"./src/hooks/iteration-context.ts\";
+for (let i=0;i<9;i++) buildIterationContext('$ITER_REPO', 'sess-loop', 'x');
+const r = buildIterationContext('$ITER_REPO', 'sess-loop', 'autoresearch: loop over scenarios');
+process.stdout.write(r.text && r.text.includes('Loop state') ? 'PASS' : 'FAIL: ' + (r.text||'null'));
+"
+
+case_ok "iteration-context: disabled via env var" "
+process.env.AR_DISABLE_ITERATION_CONTEXT = '1';
+import { buildIterationContext } from \"./src/hooks/iteration-context.ts\";
+const r = buildIterationContext('$ITER_REPO', 'sess-disabled', 'x');
+process.stdout.write(r.text === null ? 'PASS' : 'FAIL: still injecting');
+"
+
+rm -rf "$ITER_REPO"
+
+# ============================================================================
+printf '\n--- Testing isHookEnabled env flags ---\n'
+# ============================================================================
+
+case_ok "isHookEnabled: enabled by default" '
+import { isHookEnabled } from "./src/lib/session-state.ts";
+delete process.env.AR_DISABLE_SCOUT_BLOCK;
+process.stdout.write(isHookEnabled("scout-block") ? "PASS" : "FAIL");
+'
+
+case_ok "isHookEnabled: disabled by env" '
+import { isHookEnabled } from "./src/lib/session-state.ts";
+process.env.AR_DISABLE_SCOUT_BLOCK = "1";
+process.stdout.write(!isHookEnabled("scout-block") ? "PASS" : "FAIL");
+'
+
+# ============================================================================
+# Type-check: the extension must compile clean against pi types.
+# ============================================================================
+printf '\n--- Testing TypeScript type-check ---\n'
+TOTAL=$((TOTAL + 1))
+PI_NODE="$(cd "$PI_EXT" && npm root -g 2>/dev/null)/@earendil-works/pi-coding-agent"
+if [[ ! -d "$PI_NODE" ]]; then
+  # Try the nvm global used in dev
+  PI_NODE="$(dirname "$(dirname "$(readlink -f "$(command -v pi)")")")/lib/node_modules/@earendil-works/pi-coding-agent"
+fi
+if [[ ! -d "$PI_NODE" ]]; then
+  printf '  SKIP: pi-coding-agent types not found (non-pi environment)\n'
+  PASS=$((PASS + 1))
+else
+  # Symlink pi's types into the extension's own node_modules so tsc's
+  # upward module resolution (src -> pi-extension/node_modules) finds them.
+  NM="$PI_EXT/node_modules"
+  mkdir -p "$NM/@earendil-works"
+  ln -sf "$PI_NODE" "$NM/@earendil-works/pi-coding-agent"
+  [[ -d "$PI_NODE/../typebox" ]] && ln -sf "$PI_NODE/../typebox" "$NM/typebox"
+  [[ -d "$PI_NODE/../pi-ai" ]] && ln -sf "$PI_NODE/../pi-ai" "$NM/@earendil-works/pi-ai"
+  printf '{"compilerOptions":{"target":"ES2022","module":"ESNext","moduleResolution":"Bundler","strict":true,"noEmit":true,"skipLibCheck":true,"esModuleInterop":true,"resolveJsonModule":true,"lib":["ES2022"],"types":[]},"include":["src/**/*.ts"]}' > "$PI_EXT/tsconfig.test.json"
+  if npx -y -p typescript@5.6 tsc --noEmit -p "$PI_EXT/tsconfig.test.json" >/tmp/pi-tsc.log 2>&1; then
+    printf '  PASS: tsc --strict clean\n'
+    PASS=$((PASS + 1))
+  else
+    printf '  FAIL: tsc --strict\n'
+    head -20 /tmp/pi-tsc.log >&2
+    FAIL=$((FAIL + 1))
+  fi
+  rm -rf "$NM" "$PI_EXT/tsconfig.test.json"
+fi
+
+# ============================================================================
+# Summary
+# ============================================================================
+printf '\n=== Results: %d/%d passed ===' "$PASS" "$TOTAL"
+if [[ "$FAIL" -gt 0 ]]; then
+  printf ' (%d FAILED)\n' "$FAIL"
+  exit 1
+else
+  printf ' (all passed)\n'
+  exit 0
+fi
