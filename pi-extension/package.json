@@ -21,8 +21,6 @@
     "agent"
   ],
   "pi": {
-    "extensions": ["./src/index.ts"],
-    "skills": ["./skills/autoresearch/SKILL.md"],
-    "prompts": ["./prompts"]
+    "extensions": ["./src/index.ts"]
   }
 }

@@ -14,7 +14,7 @@ This package keeps the same spirit as the [Claude Code](../claude-plugin) and [O
 
 ```
 pi-extension/
-├── package.json              # pi package manifest (extension + skill + prompts)
+├── package.json              # pi package manifest (declares the extension entry only)
 ├── src/
 │   ├── index.ts              # entry: registers guardrails + resources_discover
 │   ├── guardrails.ts         # wires hooks → pi events
@@ -50,6 +50,12 @@ pi-extension/
 Every hook **fails open** — a guardrail malfunction never blocks legitimate work.
 
 > **Note on subagent context:** Claude's `SubagentStart` hook injected iteration state into subagents. pi subagents inherit the loaded autoresearch skill, so the active-iteration context already flows via the skill + `iteration-context` on the parent. There is no direct subagent-spawn event in pi's extension API, so the `subagent-context` hook is not ported.
+
+### Resource contribution
+
+The skill and prompt templates are contributed **only** via the extension's `resources_discover` event (not duplicated in the `package.json` `pi` manifest). Declaring them in both places causes pi to register each resource twice and emit `collision` diagnostics. The manifest declares just the extension entry (`pi.extensions`); `resources_discover` supplies the skill + prompts at runtime. This works for `pi install`, `pi -e ./pi-extension` (dir), and `pi -e ./src/index.ts` (bare file).
+
+> **Skill-name collisions:** if you already have the autoresearch skill installed elsewhere (e.g. a global `~/.pi/agent/skills/autoresearch/` copy, or the repo's own `.agents/skills/autoresearch/`), pi dedupes by name — the extension's copy wins and the others are skipped. The skipped entries show as `collision` diagnostics in the startup banner. To silence them, remove the stale copies you no longer need (the extension bundles its own).
 
 ## Commands
 
