@@ -435,6 +435,46 @@ process.stdout.write(!isHookEnabled("scout-block") ? "PASS" : "FAIL");
 '
 
 # ============================================================================
+printf '\n--- Testing subagent-context ---\n'
+# ============================================================================
+
+SUB_REPO="$(mktemp -d)"
+( cd "$SUB_REPO" && mkdir -p autoresearch/run001 && printf 'iteration\tstatus\tmetric\n1\tpass\t0.85\n2\tpass\t0.87\n' > autoresearch/run001/results.tsv ) >/dev/null 2>&1
+
+case_ok "subagent-context: isSubagentChild detects PI_SUBAGENT_CHILD" '
+import { isSubagentChild } from "./src/hooks/subagent-context.ts";
+process.env.PI_SUBAGENT_CHILD = "1";
+process.stdout.write(isSubagentChild() ? "PASS" : "FAIL");
+'
+
+case_ok "subagent-context: no TSV returns null" '
+import { buildSubagentContext } from "./src/hooks/subagent-context.ts";
+const r = buildSubagentContext("/nonexistent-cwd-12345", "sess-no-tsv");
+process.stdout.write(r.text === null ? "PASS" : "FAIL: " + r.text);
+'
+
+case_ok "subagent-context: with active TSV injects header" "
+import { buildSubagentContext } from \"./src/hooks/subagent-context.ts\";
+const r = buildSubagentContext('$SUB_REPO', 'sess-sub');
+process.stdout.write(r.text && r.text.includes('Autoresearch context (for subagent)') ? 'PASS' : 'FAIL: ' + (r.text||'null'));
+"
+
+case_ok "subagent-context: contains TSV path + iteration" "
+import { buildSubagentContext } from \"./src/hooks/subagent-context.ts\";
+const r = buildSubagentContext('$SUB_REPO', 'sess-sub2');
+process.stdout.write(r.text && r.text.includes('Active TSV:') && r.text.includes('Iteration:') ? 'PASS' : 'FAIL: ' + (r.text||'null'));
+"
+
+case_ok "subagent-context: disabled via env var" "
+process.env.AR_DISABLE_SUBAGENT_CONTEXT = '1';
+import { buildSubagentContext } from \"./src/hooks/subagent-context.ts\";
+const r = buildSubagentContext('$SUB_REPO', 'sess-disabled');
+process.stdout.write(r.text === null ? 'PASS' : 'FAIL: still injecting');
+"
+
+rm -rf "$SUB_REPO"
+
+# ============================================================================
 # Type-check: the extension must compile clean against pi types.
 # ============================================================================
 printf '\n--- Testing TypeScript type-check ---\n'

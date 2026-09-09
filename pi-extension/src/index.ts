@@ -15,6 +15,7 @@
 //   UserPrompt → input              (simplify-gate)
 //   SessionStart → session_start    (session-init)
 //   SessionEnd   → session_shutdown (stop-notify)
+//   SubagentStart → before_agent_start (subagent-context, child-side) + pi.events (parent)
 //
 // Every hook fails open — a guardrail malfunction never blocks work.
 

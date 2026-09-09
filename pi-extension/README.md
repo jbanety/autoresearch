@@ -46,10 +46,11 @@ pi-extension/
 | `UserPromptSubmit` | `input` | simplify-gate (block/warn shipping verbs) |
 | `SessionStart` | `session_start` | session-init (persist project/branch state) |
 | `SessionEnd` | `session_shutdown` | stop-notify (notify + webhook + cleanup) |
+| `SubagentStart` | `before_agent_start` (child) + `pi.events` (parent) | subagent-context (port of Claude SubagentStart; integrates with pi-subagents) |
 
 Every hook **fails open** — a guardrail malfunction never blocks legitimate work.
 
-> **Note on subagent context:** Claude's `SubagentStart` hook injected iteration state into subagents. pi subagents inherit the loaded autoresearch skill, so the active-iteration context already flows via the skill + `iteration-context` on the parent. There is no direct subagent-spawn event in pi's extension API, so the `subagent-context` hook is not ported.
+> **Note on subagent context:** Claude's `SubagentStart` hook injected iteration state into subagents. pi has no native subagent-spawn event in the extension API, but the widely-used [pi-subagents](https://github.com/earendil-works/pi-subagents) extension emits delegation events on the shared `pi.events` bus, and pi subagents are full pi sessions that load this same extension and fire `before_agent_start`. The `subagent-context` hook uses both: on the **parent** side it listens for `prompt-template:subagent:request` to log launches; on the **child** side (`PI_SUBAGENT_CHILD=1`) it injects the project/branch/active-TSV/iteration block at `before_agent_start` — the direct port of the Claude `SubagentStart` injection. If pi-subagents isn't installed, both paths fail open (no-op).
 
 ### Resource contribution
 

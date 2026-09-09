@@ -7,6 +7,8 @@
 // UserPromptSubmit    → input                 → simplify-gate (block/warn shipping verbs)
 // SessionStart        → session_start         → session-init (persist state)
 // SessionEnd          → session_shutdown      → stop-notify (notify + cleanup)
+// SubagentStart       → before_agent_start    → subagent-context (child-side, PI_SUBAGENT_CHILD=1)
+//                       + pi.events            → subagent-context (parent-side delegation logging)
 //
 // All hooks fail open: a guardrail malfunction never blocks legitimate work.
 
@@ -22,6 +24,7 @@ import {
 } from "./hooks/privacy-block.js";
 import { buildIterationContext } from "./hooks/iteration-context.js";
 import { buildDevRules } from "./hooks/dev-rules-reminder.js";
+import { buildSubagentContext, isSubagentChild } from "./hooks/subagent-context.js";
 import { checkSimplifyGate, surfaceWarning } from "./hooks/simplify-gate.js";
 import { runStopNotify } from "./hooks/stop-notify.js";
 import {
@@ -172,6 +175,16 @@ function onBeforeAgentStart(pi: ExtensionAPI): void {
 
     const parts: string[] = [];
 
+    // When running inside a pi-subagents child, inject the subagent context
+    // block (project/branch/active TSV/iteration) — the port of Claude's
+    // SubagentStart hook. iteration-context already flows into children via
+    // this same handler, but the subagent block adds the structured header
+    // and is the canonical entry point for child-side autoresearch state.
+    if (isSubagentChild()) {
+      const sub = buildSubagentContext(cwd, sessionId);
+      if (sub.text) parts.push(sub.text);
+    }
+
     const iter = buildIterationContext(cwd, sessionId, prompt);
     if (iter.text) parts.push(iter.text);
 
@@ -207,12 +220,40 @@ function onInput(pi: ExtensionAPI): void {
   });
 }
 
+// Parent-side observability for pi-subagents: log delegation requests so
+// subagent launches show up in the bounded hook log. This is notification
+// only — the request cannot be mutated here; child-side context injection
+// happens via onBeforeAgentStart (PI_SUBAGENT_CHILD=1). Fails open if
+// pi-subagents is not installed (the event simply never fires).
+const SUBAGENT_REQUEST_EVENT = "prompt-template:subagent:request";
+
+function onSubagentDelegation(pi: ExtensionAPI): void {
+  try {
+    pi.events.on(SUBAGENT_REQUEST_EVENT, (data: unknown) => {
+      if (!isHookEnabled("subagent-context")) return;
+      try {
+        const req = data as { agent?: string; context?: string } | null;
+        log("subagent-context", {
+          action: "delegation",
+          tool: req?.agent || "unknown",
+          category: req?.context || "unknown",
+        });
+      } catch {
+        /* fail-open */
+      }
+    });
+  } catch {
+    /* pi.events unavailable — fail open */
+  }
+}
+
 export function registerGuardrails(pi: ExtensionAPI): void {
   onSessionStart(pi);
   onSessionShutdown(pi);
   onToolCall(pi);
   onBeforeAgentStart(pi);
   onInput(pi);
+  onSubagentDelegation(pi);
 }
 
 // Re-export for tests / direct use.
