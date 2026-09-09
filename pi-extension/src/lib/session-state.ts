@@ -92,13 +92,15 @@ export function pruneStaleSessionFiles(): void {
 }
 
 // Bounded metadata-only runtime log, mirroring the original. Lives under the
-// pi config dir (~/.pi/agent/hooks/.logs/<projectHash>/hook-log.jsonl). Raw
-// paths, commands, tool inputs, and secrets are intentionally excluded.
+// pi config dir (~/.pi/agent/autoresearch/.logs/<projectHash>/hook-log.jsonl).
+// NOTE: do NOT use ~/.pi/agent/hooks/ — pi renamed hooks→extensions and warns
+// on a legacy hooks/ directory, so we use a namespaced autoresearch/ dir instead.
+// Raw paths, commands, tool inputs, and secrets are intentionally excluded.
 export function log(hookName: string, entry: Record<string, unknown>): void {
   try {
     const cwd = process.cwd();
     const projectKey = createHash("md5").update(cwd).digest("hex").slice(0, 12);
-    const logDir = join(homedir(), ".pi", "agent", "hooks", ".logs", projectKey);
+    const logDir = join(homedir(), ".pi", "agent", "autoresearch", ".logs", projectKey);
     mkdirSync(logDir, { recursive: true });
     const logPath = join(logDir, "hook-log.jsonl");
     const safeEntry: Record<string, unknown> = {};

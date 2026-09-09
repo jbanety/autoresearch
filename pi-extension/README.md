@@ -142,7 +142,7 @@ Per-hook disable flags (same as the Claude plugin):
 | `AR_DISABLE_STOP_NOTIFY` | session-end notification |
 | `AR_NOTIFY_WEBHOOK` | optional webhook URL for session-end notifications |
 
-Runtime logs (bounded metadata only — no paths, commands, or secrets) are written to `~/.pi/agent/hooks/.logs/<projectHash>/hook-log.jsonl`.
+Runtime logs (bounded metadata only — no paths, commands, or secrets) are written to `~/.pi/agent/autoresearch/.logs/<projectHash>/hook-log.jsonl`.
 
 ## License
 
